@@ -119,18 +119,50 @@ async function startServer() {
     scheduleDailyJob(movieCollection);
 
     // API endpoint to fetch movies from the database
+    // app.get('/movies', async (req, res) => {
+    //   try {
+    //     const movies = await movieCollection
+    //       .find()
+    //       .sort({ primary_release_date: -1 })
+    //       .toArray();
+    //     res.json(movies);
+    //   } catch (error) {
+    //     console.error("Error fetching movies:", error.message);
+    //     res.status(500).send("Error fetching movies");
+    //   }
+    // });
+
+
     app.get('/movies', async (req, res) => {
       try {
+        const { page = 1, limit = 12 } = req.query; // Default to page 1 and limit 12 if not provided
+    
+        const movieCollection = client.db('Movie').collection('movies');
+        const skip = (page - 1) * limit; // Calculate the number of documents to skip
+    
+        // Fetch the paginated and sorted movies
         const movies = await movieCollection
           .find()
-          .sort({ primary_release_date: -1 })
+          .sort({ primary_release_date: -1 }) // Latest movies first
+          .skip(parseInt(skip)) // Skip the first `skip` documents
+          .limit(parseInt(limit)) // Limit the number of documents to `limit`
           .toArray();
-        res.json(movies);
+    
+        // Get the total count of movies for pagination metadata
+        const totalMovies = await movieCollection.countDocuments();
+    
+        res.json({
+          data: movies,
+          currentPage: parseInt(page),
+          totalPages: Math.ceil(totalMovies / limit),
+          totalMovies,
+        });
       } catch (error) {
         console.error("Error fetching movies:", error.message);
         res.status(500).send("Error fetching movies");
       }
     });
+    
 
     const port = process.env.PORT || 8080;
     app.listen(port, () => {
