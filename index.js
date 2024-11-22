@@ -135,24 +135,33 @@ async function startServer() {
 
     app.get('/movies', async (req, res) => {
       try {
-        const { page = 1, limit = 12 } = req.query; // Default to page 1 and limit 12 if not provided
+        const { page = 1, limit = 12 } = req.query; // Defaults
+        const today = moment().format("YYYY-MM-DD"); // Current date
+        const skip = (page - 1) * limit; // Pagination logic
     
         const movieCollection = client.db('Movie').collection('movies');
-        const skip = (page - 1) * limit; // Calculate the number of documents to skip
     
-        // Fetch the paginated and sorted movies
-        const movies = await movieCollection
-          .find()
-          .sort({ primary_release_date: -1 }) // Latest movies first
-          .skip(parseInt(skip)) // Skip the first `skip` documents
-          .limit(parseInt(limit)) // Limit the number of documents to `limit`
+        // Fetch today's movies first
+        const todaysMovies = await movieCollection
+          .find({ primary_release_date: today }) // Filter by today's date
           .toArray();
     
-        // Get the total count of movies for pagination metadata
+        // Exclude today's movies from the rest of the query
+        const otherMovies = await movieCollection
+          .find({ primary_release_date: { $ne: today } }) // Movies not from today
+          .sort({ primary_release_date: -1 }) // Descending by release date
+          .skip(skip - todaysMovies.length) // Adjust skip for today's movies
+          .limit(limit - todaysMovies.length) // Adjust limit for today's movies
+          .toArray();
+    
+        // Combine today's movies and other movies
+        const combinedMovies = [...todaysMovies, ...otherMovies].slice(0, limit);
+    
+        // Total count for pagination
         const totalMovies = await movieCollection.countDocuments();
     
         res.json({
-          data: movies,
+          data: combinedMovies,
           currentPage: parseInt(page),
           totalPages: Math.ceil(totalMovies / limit),
           totalMovies,
