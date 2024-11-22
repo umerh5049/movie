@@ -142,6 +142,30 @@ async function startServer() {
   }
 }
 
+// Search endpoint
+app.get('/search', async (req, res) => {
+  const { query } = req.query;
+
+  if (!query || query.trim() === '') {
+    return res.status(400).json({ error: 'Query parameter is required.' });
+  }
+
+  try {
+    const movieCollection = client.db('Movie').collection('movies');
+    
+    // Search movies with a case-insensitive regex query
+    const searchResults = await movieCollection
+      .find({ title: { $regex: query, $options: 'i' } })
+      .limit(10) // Limit results for performance
+      .toArray();
+
+    res.json({ results: searchResults });
+  } catch (error) {
+    console.error("Error searching movies:", error.message);
+    res.status(500).send({ error: 'Error searching movies.' });
+  }
+});
+
 // Graceful shutdown for MongoDB connection
 process.on('SIGINT', async () => {
   console.log('Shutting down server...');
