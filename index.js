@@ -330,6 +330,39 @@ app.get('/movies/family', async (req, res) => {
 });
 
 
+// API endpoint to fetch only horror movies
+app.get('/movies/horror', async (req, res) => {
+  try {
+    const { page = 1, limit = 12 } = req.query;
+    const skip = (parseInt(page) - 1) * parseInt(limit);
+
+    // Filter movies by genre_id 27 (Horror)
+    const horrorMovies = await movieCollection.find({
+      genre_ids: { $in: [27] }, // Filter for movies with '27' in genre_ids
+    })
+      .sort({ release_date: -1 }) // Sort by release date descending
+      .skip(skip)
+      .limit(parseInt(limit))
+      .toArray();
+
+    const totalHorrorMovies = await movieCollection.countDocuments({
+      genre_ids: { $in: [27] },
+    });
+
+    res.json({
+      data: horrorMovies,
+      currentPage: parseInt(page),
+      totalPages: Math.ceil(totalHorrorMovies / parseInt(limit)),
+      totalMovies: totalHorrorMovies,
+    });
+  } catch (error) {
+    console.error("Error fetching horror movies:", error.message);
+    res.status(500).json({ error: "Error fetching horror movies" });
+  }
+});
+
+
+
 
     const port = process.env.PORT || 8080;
     app.listen(port, () => {
