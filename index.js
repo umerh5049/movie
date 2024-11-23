@@ -722,6 +722,9 @@ app.get('/movies/horror', async (req, res) => {
 
 
 
+
+
+
 // API endpoint to fetch new releases grouped by language
 app.get('/movies/new-releases', async (req, res) => {
   try {
@@ -745,6 +748,30 @@ app.get('/movies/new-releases', async (req, res) => {
   }
 });
 
+
+
+app.get('/search', async (req, res) => {
+  const { query } = req.query;
+
+  if (!query || query.trim() === '') {
+    return res.status(400).json({ error: 'Query parameter is required.' });
+  }
+
+  try {
+    const movieCollection = client.db('Movie').collection('movies');
+    
+    // Search movies with a case-insensitive regex query
+    const searchResults = await movieCollection
+      .find({ title: { $regex: query, $options: 'i' } })
+      .limit(10) // Limit results for performance
+      .toArray();
+
+    res.json({ results: searchResults });
+  } catch (error) {
+    console.error("Error searching movies:", error.message);
+    res.status(500).send({ error: 'Error searching movies.' });
+  }
+});
 
 
 
