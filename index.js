@@ -722,6 +722,30 @@ app.get('/movies/horror', async (req, res) => {
 
 
 
+// Endpoint to get new releases categorized by language
+router.get('/newreleased', async (req, res) => {
+  try {
+    const languages = ["en", "te", "ta", "hi", "ml", "kn", "mr"];
+    const results = {};
+
+    for (const lang of languages) {
+      // Query to fetch movies filtered by language
+      const movies = await Movie.find({ original_language: lang })
+        .sort({ release_date: -1 }) // Sort by release date descending
+        .limit(10); // Limit to top 10 new movies
+
+      results[lang] = movies;
+    }
+
+    res.status(200).json(results);
+  } catch (error) {
+    console.error("Error fetching new releases:", error);
+    res.status(500).json({ error: "Failed to fetch new releases." });
+  }
+});
+
+
+
     const port = process.env.PORT || 8080;
     app.listen(port, () => {
       console.log(`Server running on port ${port}`);
