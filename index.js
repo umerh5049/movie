@@ -491,6 +491,106 @@ app.get('/movies/adventure', async (req, res) => {
   }
 });
 
+// API endpoint to fetch only Hindi movies
+app.get('/movies/hindi', async (req, res) => {
+  try {
+    const { page = 1, limit = 12 } = req.query;
+    const skip = (parseInt(page) - 1) * parseInt(limit);
+
+    // Filter movies by original_language "hi" (Hindi)
+    const hindiMovies = await movieCollection.find({
+      original_language: "hi",
+    })
+      .sort({ release_date: -1 }) // Sort by release date descending
+      .skip(skip)
+      .limit(parseInt(limit))
+      .toArray();
+
+    const totalHindiMovies = await movieCollection.countDocuments({
+      original_language: "hi",
+    });
+
+    res.json({
+      data: hindiMovies,
+      currentPage: parseInt(page),
+      totalPages: Math.ceil(totalHindiMovies / parseInt(limit)),
+      totalMovies: totalHindiMovies,
+    });
+  } catch (error) {
+    console.error("Error fetching Hindi movies:", error.message);
+    res.status(500).json({ error: "Error fetching Hindi movies" });
+  }
+});
+
+
+
+// API endpoint to fetch only Tamil movies
+app.get('/movies/tamil', async (req, res) => {
+  try {
+    const { page = 1, limit = 12 } = req.query;
+    const skip = (parseInt(page) - 1) * parseInt(limit);
+
+    // Filter movies by original_language "ta" (Tamil)
+    const tamilMovies = await movieCollection.find({
+      original_language: "ta",
+    })
+      .sort({ release_date: -1 }) // Sort by release date descending
+      .skip(skip)
+      .limit(parseInt(limit))
+      .toArray();
+
+    const totalTamilMovies = await movieCollection.countDocuments({
+      original_language: "ta",
+    });
+
+    res.json({
+      data: tamilMovies,
+      currentPage: parseInt(page),
+      totalPages: Math.ceil(totalTamilMovies / parseInt(limit)),
+      totalMovies: totalTamilMovies,
+    });
+  } catch (error) {
+    console.error("Error fetching Tamil movies:", error.message);
+    res.status(500).json({ error: "Error fetching Tamil movies" });
+  }
+});
+
+
+
+// API endpoint to fetch only Telugu movies
+app.get('/movies/telugu', async (req, res) => {
+  try {
+    const { page = 1, limit = 10 } = req.query;
+    const skip = (parseInt(page) - 1) * parseInt(limit);
+
+    // Filter movies by original_language "te" (Telugu)
+    const teluguMovies = await movieCollection.find({
+      original_language: "te",
+    })
+      .sort({ release_date: -1 }) // Sort by release date descending
+      .skip(skip)
+      .limit(parseInt(limit))
+      .toArray();
+
+    const totalTeluguMovies = await movieCollection.countDocuments({
+      original_language: "te",
+    });
+
+    res.json({
+      data: teluguMovies,
+      currentPage: parseInt(page),
+      totalPages: Math.ceil(totalTeluguMovies / parseInt(limit)),
+      totalMovies: totalTeluguMovies,
+    });
+  } catch (error) {
+    console.error("Error fetching Telugu movies:", error.message);
+    res.status(500).json({ error: "Error fetching Telugu movies" });
+  }
+});
+
+
+
+
 
     const port = process.env.PORT || 8080;
     app.listen(port, () => {
