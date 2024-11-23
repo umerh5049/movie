@@ -431,7 +431,7 @@ app.get('/movies/comedy', async (req, res) => {
 // API endpoint to fetch only romance movies
 app.get('/movies/romance', async (req, res) => {
   try {
-    const { page = 1, limit = 10 } = req.query;
+    const { page = 1, limit = 12 } = req.query;
     const skip = (parseInt(page) - 1) * parseInt(limit);
 
     // Filter movies by genre_id 10749 (Romance)
@@ -463,7 +463,7 @@ app.get('/movies/romance', async (req, res) => {
 // API endpoint to fetch only adventure movies
 app.get('/movies/adventure', async (req, res) => {
   try {
-    const { page = 1, limit = 10 } = req.query;
+    const { page = 1, limit = 12 } = req.query;
     const skip = (parseInt(page) - 1) * parseInt(limit);
 
     // Filter movies by genre_id 12 (Adventure)
@@ -560,7 +560,7 @@ app.get('/movies/tamil', async (req, res) => {
 // API endpoint to fetch only Telugu movies
 app.get('/movies/telugu', async (req, res) => {
   try {
-    const { page = 1, limit = 10 } = req.query;
+    const { page = 1, limit = 12 } = req.query;
     const skip = (parseInt(page) - 1) * parseInt(limit);
 
     // Filter movies by original_language "te" (Telugu)
@@ -594,7 +594,7 @@ app.get('/movies/telugu', async (req, res) => {
 // API endpoint to fetch only English movies
 app.get('/movies/english', async (req, res) => {
   try {
-    const { page = 1, limit = 10 } = req.query;
+    const { page = 1, limit = 12 } = req.query;
     const skip = (parseInt(page) - 1) * parseInt(limit);
 
     // Filter movies by original_language "en" (English)
@@ -626,7 +626,7 @@ app.get('/movies/english', async (req, res) => {
 // API endpoint to fetch only Fantasy movies
 app.get('/movies/fantasy', async (req, res) => {
   try {
-    const { page = 1, limit = 10 } = req.query;
+    const { page = 1, limit = 12 } = req.query;
     const skip = (parseInt(page) - 1) * parseInt(limit);
 
     // Filter movies by genre ID 14 (Fantasy)
@@ -659,7 +659,7 @@ app.get('/movies/fantasy', async (req, res) => {
 // API endpoint to fetch only Science Fiction movies
 app.get('/movies/science-fiction', async (req, res) => {
   try {
-    const { page = 1, limit = 10 } = req.query;
+    const { page = 1, limit = 12 } = req.query;
     const skip = (parseInt(page) - 1) * parseInt(limit);
 
     // Filter movies by genre ID 878 (Science Fiction)
@@ -692,7 +692,7 @@ app.get('/movies/science-fiction', async (req, res) => {
 // Endpoint for Horror Movies
 app.get('/movies/horror', async (req, res) => {
   try {
-    const { page = 1, limit = 10 } = req.query;
+    const { page = 1, limit = 12 } = req.query;
     const skip = (parseInt(page) - 1) * parseInt(limit);
 
     // Filter by Horror genre (genre_id: 27)
