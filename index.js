@@ -296,6 +296,41 @@ app.get('/movies/drama', async (req, res) => {
 
 
 
+
+
+// API endpoint to fetch only family movies
+app.get('/movies/family', async (req, res) => {
+  try {
+    const { page = 1, limit = 12 } = req.query;
+    const skip = (parseInt(page) - 1) * parseInt(limit);
+
+    // Filter movies by genre_id 10751 (Family)
+    const familyMovies = await movieCollection.find({
+      genre_ids: { $in: [10751] }, // Filter for movies with '10751' in genre_ids
+    })
+      .sort({ release_date: -1 }) // Sort by release date descending
+      .skip(skip)
+      .limit(parseInt(limit))
+      .toArray();
+
+    const totalFamilyMovies = await movieCollection.countDocuments({
+      genre_ids: { $in: [10751] },
+    });
+
+    res.json({
+      data: familyMovies,
+      currentPage: parseInt(page),
+      totalPages: Math.ceil(totalFamilyMovies / parseInt(limit)),
+      totalMovies: totalFamilyMovies,
+    });
+  } catch (error) {
+    console.error("Error fetching family movies:", error.message);
+    res.status(500).json({ error: "Error fetching family movies" });
+  }
+});
+
+
+
     const port = process.env.PORT || 8080;
     app.listen(port, () => {
       console.log(`Server running on port ${port}`);
