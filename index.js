@@ -591,6 +591,136 @@ app.get('/movies/telugu', async (req, res) => {
 
 
 
+// API endpoint to fetch only English movies
+app.get('/movies/english', async (req, res) => {
+  try {
+    const { page = 1, limit = 10 } = req.query;
+    const skip = (parseInt(page) - 1) * parseInt(limit);
+
+    // Filter movies by original_language "en" (English)
+    const englishMovies = await movieCollection.find({
+      original_language: "en",
+    })
+      .sort({ release_date: -1 }) // Sort by release date descending
+      .skip(skip)
+      .limit(parseInt(limit))
+      .toArray();
+
+    const totalEnglishMovies = await movieCollection.countDocuments({
+      original_language: "en",
+    });
+
+    res.json({
+      data: englishMovies,
+      currentPage: parseInt(page),
+      totalPages: Math.ceil(totalEnglishMovies / parseInt(limit)),
+      totalMovies: totalEnglishMovies,
+    });
+  } catch (error) {
+    console.error("Error fetching English movies:", error.message);
+    res.status(500).json({ error: "Error fetching English movies" });
+  }
+});
+
+
+// API endpoint to fetch only Fantasy movies
+app.get('/movies/fantasy', async (req, res) => {
+  try {
+    const { page = 1, limit = 10 } = req.query;
+    const skip = (parseInt(page) - 1) * parseInt(limit);
+
+    // Filter movies by genre ID 14 (Fantasy)
+    const fantasyMovies = await movieCollection.find({
+      genre_ids: { $in: [14] },
+    })
+      .sort({ release_date: -1 }) // Sort by release date descending
+      .skip(skip)
+      .limit(parseInt(limit))
+      .toArray();
+
+    const totalFantasyMovies = await movieCollection.countDocuments({
+      genre_ids: { $in: [14] },
+    });
+
+    res.json({
+      data: fantasyMovies,
+      currentPage: parseInt(page),
+      totalPages: Math.ceil(totalFantasyMovies / parseInt(limit)),
+      totalMovies: totalFantasyMovies,
+    });
+  } catch (error) {
+    console.error("Error fetching Fantasy movies:", error.message);
+    res.status(500).json({ error: "Error fetching Fantasy movies" });
+  }
+});
+
+
+
+// API endpoint to fetch only Science Fiction movies
+app.get('/movies/science-fiction', async (req, res) => {
+  try {
+    const { page = 1, limit = 10 } = req.query;
+    const skip = (parseInt(page) - 1) * parseInt(limit);
+
+    // Filter movies by genre ID 878 (Science Fiction)
+    const sciFiMovies = await movieCollection.find({
+      genre_ids: { $in: [878] },
+    })
+      .sort({ release_date: -1 }) // Sort by release date descending
+      .skip(skip)
+      .limit(parseInt(limit))
+      .toArray();
+
+    const totalSciFiMovies = await movieCollection.countDocuments({
+      genre_ids: { $in: [878] },
+    });
+
+    res.json({
+      data: sciFiMovies,
+      currentPage: parseInt(page),
+      totalPages: Math.ceil(totalSciFiMovies / parseInt(limit)),
+      totalMovies: totalSciFiMovies,
+    });
+  } catch (error) {
+    console.error("Error fetching Science Fiction movies:", error.message);
+    res.status(500).json({ error: "Error fetching Science Fiction movies" });
+  }
+});
+
+
+
+// Endpoint for Horror Movies
+app.get('/movies/horror', async (req, res) => {
+  try {
+    const { page = 1, limit = 10 } = req.query;
+    const skip = (parseInt(page) - 1) * parseInt(limit);
+
+    // Filter by Horror genre (genre_id: 27)
+    const horrorMovies = await movieCollection.find({
+      genre_ids: { $in: [27] },
+    })
+      .sort({ release_date: -1 }) // Sort by newest release date
+      .skip(skip)
+      .limit(parseInt(limit))
+      .toArray();
+
+    const totalHorrorMovies = await movieCollection.countDocuments({
+      genre_ids: { $in: [27] },
+    });
+
+    res.json({
+      data: horrorMovies,
+      currentPage: parseInt(page),
+      totalPages: Math.ceil(totalHorrorMovies / parseInt(limit)),
+      totalMovies: totalHorrorMovies,
+    });
+  } catch (error) {
+    console.error("Error fetching horror movies:", error.message);
+    res.status(500).json({ error: "Error fetching horror movies" });
+  }
+});
+
+
 
     const port = process.env.PORT || 8080;
     app.listen(port, () => {
