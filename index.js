@@ -132,46 +132,55 @@ async function startServer() {
     //   }
     // });
 
-
     app.get('/movies', async (req, res) => {
       try {
-        const { page = 1, limit = 12 } = req.query; // Defaults
-        const today = moment().format("YYYY-MM-DD"); // Current date
-        const skip = (page - 1) * limit; // Pagination logic
-    
+        const { page = 1, limit = 12 } = req.query;
+        const skip = (parseInt(page) - 1) * parseInt(limit);
+        
         const movieCollection = client.db('Movie').collection('movies');
     
-        // Fetch today's movies first
-        const todaysMovies = await movieCollection
-          .find({ primary_release_date: today }) // Filter by today's date
+        // Get the current date
+        const today = moment().startOf('day').toISOString();
+        
+        // First, get movies released today
+        const todayMovies = await movieCollection
+          .find({
+            release_date: {
+              $gte: today,
+              $lt: moment().endOf('day').toISOString()
+            }
+          })
           .toArray();
     
-        // Exclude today's movies from the rest of the query
+        // Then get other movies, excluding today's releases
         const otherMovies = await movieCollection
-          .find({ primary_release_date: { $ne: today } }) // Movies not from today
-          .sort({ primary_release_date: -1 }) // Descending by release date
-          .skip(skip - todaysMovies.length) // Adjust skip for today's movies
-          .limit(limit - todaysMovies.length) // Adjust limit for today's movies
+          .find({
+            release_date: { $lt: today }
+          })
+          .sort({ release_date: -1 })
+          .skip(Math.max(0, skip - todayMovies.length))
+          .limit(Math.max(0, parseInt(limit) - todayMovies.length))
           .toArray();
     
-        // Combine today's movies and other movies
-        const combinedMovies = [...todaysMovies, ...otherMovies].slice(0, limit);
+        // Combine the results
+        const combinedMovies = [...todayMovies, ...otherMovies].slice(0, limit);
     
-        // Total count for pagination
+        // Get total count for pagination
         const totalMovies = await movieCollection.countDocuments();
     
         res.json({
           data: combinedMovies,
           currentPage: parseInt(page),
-          totalPages: Math.ceil(totalMovies / limit),
+          totalPages: Math.ceil(totalMovies / parseInt(limit)),
           totalMovies,
+          todayCount: todayMovies.length
         });
+    
       } catch (error) {
         console.error("Error fetching movies:", error.message);
-        res.status(500).send("Error fetching movies");
+        res.status(500).json({ error: "Error fetching movies" });
       }
     });
-    
 
     const port = process.env.PORT || 8080;
     app.listen(port, () => {
