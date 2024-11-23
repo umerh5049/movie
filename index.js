@@ -366,7 +366,7 @@ app.get('/movies/horror', async (req, res) => {
 // API endpoint to fetch only thriller movies
 app.get('/movies/thriller', async (req, res) => {
   try {
-    const { page = 1, limit = 10 } = req.query;
+    const { page = 1, limit = 12 } = req.query;
     const skip = (parseInt(page) - 1) * parseInt(limit);
 
     // Filter movies by genre_id 53 (Thriller)
@@ -398,7 +398,7 @@ app.get('/movies/thriller', async (req, res) => {
 // API endpoint to fetch only comedy movies
 app.get('/movies/comedy', async (req, res) => {
   try {
-    const { page = 1, limit = 10 } = req.query;
+    const { page = 1, limit = 12 } = req.query;
     const skip = (parseInt(page) - 1) * parseInt(limit);
 
     // Filter movies by genre_id 35 (Comedy)
@@ -426,6 +426,70 @@ app.get('/movies/comedy', async (req, res) => {
   }
 });
 
+
+
+// API endpoint to fetch only romance movies
+app.get('/movies/romance', async (req, res) => {
+  try {
+    const { page = 1, limit = 10 } = req.query;
+    const skip = (parseInt(page) - 1) * parseInt(limit);
+
+    // Filter movies by genre_id 10749 (Romance)
+    const romanceMovies = await movieCollection.find({
+      genre_ids: { $in: [10749] }, // Filter for movies with '10749' in genre_ids
+    })
+      .sort({ release_date: -1 }) // Sort by release date descending
+      .skip(skip)
+      .limit(parseInt(limit))
+      .toArray();
+
+    const totalRomanceMovies = await movieCollection.countDocuments({
+      genre_ids: { $in: [10749] },
+    });
+
+    res.json({
+      data: romanceMovies,
+      currentPage: parseInt(page),
+      totalPages: Math.ceil(totalRomanceMovies / parseInt(limit)),
+      totalMovies: totalRomanceMovies,
+    });
+  } catch (error) {
+    console.error("Error fetching romance movies:", error.message);
+    res.status(500).json({ error: "Error fetching romance movies" });
+  }
+});
+
+
+// API endpoint to fetch only adventure movies
+app.get('/movies/adventure', async (req, res) => {
+  try {
+    const { page = 1, limit = 10 } = req.query;
+    const skip = (parseInt(page) - 1) * parseInt(limit);
+
+    // Filter movies by genre_id 12 (Adventure)
+    const adventureMovies = await movieCollection.find({
+      genre_ids: { $in: [12] }, // Filter for movies with '12' in genre_ids
+    })
+      .sort({ release_date: -1 }) // Sort by release date descending
+      .skip(skip)
+      .limit(parseInt(limit))
+      .toArray();
+
+    const totalAdventureMovies = await movieCollection.countDocuments({
+      genre_ids: { $in: [12] },
+    });
+
+    res.json({
+      data: adventureMovies,
+      currentPage: parseInt(page),
+      totalPages: Math.ceil(totalAdventureMovies / parseInt(limit)),
+      totalMovies: totalAdventureMovies,
+    });
+  } catch (error) {
+    console.error("Error fetching adventure movies:", error.message);
+    res.status(500).json({ error: "Error fetching adventure movies" });
+  }
+});
 
 
     const port = process.env.PORT || 8080;
