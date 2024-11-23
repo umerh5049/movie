@@ -395,6 +395,36 @@ app.get('/movies/thriller', async (req, res) => {
 });
 
 
+// API endpoint to fetch only comedy movies
+app.get('/movies/comedy', async (req, res) => {
+  try {
+    const { page = 1, limit = 10 } = req.query;
+    const skip = (parseInt(page) - 1) * parseInt(limit);
+
+    // Filter movies by genre_id 35 (Comedy)
+    const comedyMovies = await movieCollection.find({
+      genre_ids: { $in: [35] }, // Filter for movies with '35' in genre_ids
+    })
+      .sort({ release_date: -1 }) // Sort by release date descending
+      .skip(skip)
+      .limit(parseInt(limit))
+      .toArray();
+
+    const totalComedyMovies = await movieCollection.countDocuments({
+      genre_ids: { $in: [35] },
+    });
+
+    res.json({
+      data: comedyMovies,
+      currentPage: parseInt(page),
+      totalPages: Math.ceil(totalComedyMovies / parseInt(limit)),
+      totalMovies: totalComedyMovies,
+    });
+  } catch (error) {
+    console.error("Error fetching comedy movies:", error.message);
+    res.status(500).json({ error: "Error fetching comedy movies" });
+  }
+});
 
 
 
