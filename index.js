@@ -774,6 +774,41 @@ app.get('/search', async (req, res) => {
 });
 
 
+// API endpoint to fetch details of a specific movie by ID
+app.get('/movies/:id', async (req, res) => {
+  try {
+    const { id } = req.params; // Extract the movie ID from the request params
+
+    // Query the database for the movie by its ID
+    const movie = await movieCollection.findOne({ id: parseInt(id) });
+
+    if (!movie) {
+      // Return 404 if the movie is not found
+      return res.status(404).json({ error: "Movie not found." });
+    }
+
+    // Add the TMDB base URL to image paths
+    const BASE_IMAGE_URL = "https://image.tmdb.org/t/p/w500";
+
+    // Enhance the response with full image URLs
+    const response = {
+      ...movie,
+      poster_url: movie.poster_path ? `${BASE_IMAGE_URL}${movie.poster_path}` : null,
+      backdrop_urls: movie.backdrop_path
+        ? [`${BASE_IMAGE_URL}${movie.backdrop_path}`]
+        : [],
+    };
+
+    // Send the movie details as a JSON response
+    res.json(response);
+  } catch (error) {
+    console.error("Error fetching movie details:", error.message);
+    // Return 500 on any unexpected errors
+    res.status(500).json({ error: "Error fetching movie details." });
+  }
+});
+
+
 
 
     const port = process.env.PORT || 8080;
