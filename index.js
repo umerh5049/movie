@@ -229,6 +229,41 @@ async function startServer() {
       }
     });
 
+
+    // API endpoint to fetch only action movies
+app.get('/movies/action', async (req, res) => {
+  try {
+    const { page = 1, limit = 12 } = req.query;
+    const skip = (parseInt(page) - 1) * parseInt(limit);
+
+    // Filter movies by genre_id 28 (action)
+    const actionMovies = await movieCollection.find({
+      genre_ids: { $in: [28] }, // Filter for movies that include '28' in their genre_ids
+    })
+      .sort({ release_date: -1 }) // Sort by release date descending
+      .skip(skip)
+      .limit(parseInt(limit))
+      .toArray();
+
+    const totalActionMovies = await movieCollection.countDocuments({
+      genre_ids: { $in: [28] },
+    });
+
+    res.json({
+      data: actionMovies,
+      currentPage: parseInt(page),
+      totalPages: Math.ceil(totalActionMovies / parseInt(limit)),
+      totalMovies: totalActionMovies,
+    });
+  } catch (error) {
+    console.error("Error fetching action movies:", error.message);
+    res.status(500).json({ error: "Error fetching action movies" });
+  }
+});
+
+
+
+
     const port = process.env.PORT || 8080;
     app.listen(port, () => {
       console.log(`Server running on port ${port}`);
