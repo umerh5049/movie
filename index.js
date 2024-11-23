@@ -263,6 +263,38 @@ app.get('/movies/action', async (req, res) => {
 
 
 
+// API endpoint to fetch only drama movies
+app.get('/movies/drama', async (req, res) => {
+  try {
+    const { page = 1, limit = 12 } = req.query;
+    const skip = (parseInt(page) - 1) * parseInt(limit);
+
+    // Filter movies by genre_id 18 (Drama)
+    const dramaMovies = await movieCollection.find({
+      genre_ids: { $in: [18] }, // Filter for movies with '18' in genre_ids
+    })
+      .sort({ release_date: -1 }) // Sort by release date descending
+      .skip(skip)
+      .limit(parseInt(limit))
+      .toArray();
+
+    const totalDramaMovies = await movieCollection.countDocuments({
+      genre_ids: { $in: [18] },
+    });
+
+    res.json({
+      data: dramaMovies,
+      currentPage: parseInt(page),
+      totalPages: Math.ceil(totalDramaMovies / parseInt(limit)),
+      totalMovies: totalDramaMovies,
+    });
+  } catch (error) {
+    console.error("Error fetching drama movies:", error.message);
+    res.status(500).json({ error: "Error fetching drama movies" });
+  }
+});
+
+
 
     const port = process.env.PORT || 8080;
     app.listen(port, () => {
