@@ -125,7 +125,42 @@ function scheduleDailyJob(collection) {
   });
 }
 
-// Start the Express server
+
+
+// Remove duplicate movies based on the 'id' field
+async function removeDuplicateMovies(collection) {
+  try {
+    const pipeline = [
+      {
+        $group: {
+          _id: "$id", // Group by the 'id' field
+          count: { $sum: 1 }, // Count occurrences of each id
+          docs: { $push: "$_id" }, // Collect all _id values of documents with the same id
+        },
+      },
+      {
+        $match: {
+          count: { $gt: 1 }, // Only keep groups with more than one document
+        },
+      },
+    ];
+
+    const duplicates = await collection.aggregate(pipeline).toArray();
+
+    let totalRemoved = 0;
+    for (const duplicate of duplicates) {
+      const [keep, ...remove] = duplicate.docs; // Keep the first document, remove the rest
+      const result = await collection.deleteMany({ _id: { $in: remove } });
+      totalRemoved += result.deletedCount;
+    }
+
+    console.log(`Removed ${totalRemoved} duplicate movies.`);
+  } catch (error) {
+    console.error("Error removing duplicate movies:", error.message);
+  }
+}
+
+
 async function startServer() {
   try {
     const db = await connectToDatabase();
@@ -133,6 +168,9 @@ async function startServer() {
 
     // Cleanup movies without poster images on startup
     await deleteMoviesWithoutPoster(movieCollection);
+
+    // Remove existing duplicate movies
+    await removeDuplicateMovies(movieCollection);
 
     // Fetch and save data for today's date on startup
     const todayDate = moment().format("YYYY-MM-DD");
@@ -183,7 +221,8 @@ async function startServer() {
     app.delete('/movies/cleanup', async (req, res) => {
       try {
         await deleteMoviesWithoutPoster(movieCollection);
-        res.json({ message: "Cleanup completed. Movies without poster images removed." });
+        await removeDuplicateMovies(movieCollection);
+        res.json({ message: "Cleanup completed. Invalid and duplicate movies removed." });
       } catch (error) {
         console.error("Error cleaning up movies:", error.message);
         res.status(500).json({ error: "Error cleaning up movies" });
