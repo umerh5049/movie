@@ -35,69 +35,73 @@ async function connectToDatabase() {
   }
 }
 
-// Fetch data from TMDB API
-async function fetchTMDBData(startDate, endDate) {
+// Fetch data from TMDB API with pagination
+async function fetchTMDBDataForDate(releaseDate) {
+  let allMovies = [];
+  let currentPage = 1;
+  let totalPages = 1;
+
   try {
-    const response = await axios.get(TMDB_BASE_URL, {
-      params: {
-        api_key: TMDB_API_KEY , // Use your actual API key, not the bearer token
-      },
-      headers: {
-        'Authorization': `Bearer ${TMDB_API_KEY}` // Keep bearer token in headers if needed
-      },
-      params: {
-        primary_release_date_gte: startDate,
-        primary_release_date_lte: endDate,
-        sort_by: "release_date.desc",
-      },
-    });
-    return response.data.results;
+    do {
+      console.log(`Fetching page ${currentPage} of ${totalPages} for date ${releaseDate}...`);
+      const response = await axios.get(TMDB_BASE_URL, {
+        headers: {
+          Authorization: `Bearer ${TMDB_API_KEY}`,
+        },
+        params: {
+          "primary_release_date.gte": releaseDate,
+          "primary_release_date.lte": releaseDate,
+          sort_by: "primary_release_date.desc",
+          page: currentPage,
+        },
+      });
+
+      allMovies = [...allMovies, ...response.data.results];
+      totalPages = response.data.total_pages;
+      currentPage++;
+    } while (currentPage <= totalPages);
+
+    console.log(`Fetched ${allMovies.length} movies for date ${releaseDate}`);
+    return allMovies;
   } catch (error) {
     console.error("Error fetching data from TMDB:", error.response?.data || error.message);
     throw error;
   }
 }
 
-// Save fetched data to MongoDB
+// Save fetched data to MongoDB, avoiding duplicates
 async function saveToDatabase(collection, data) {
+  if (!data || data.length === 0) return;
+
+  const bulkOps = data.map((movie) => ({
+    updateOne: {
+      filter: { id: movie.id },
+      update: { $set: movie },
+      upsert: true, // Insert if not exists
+    },
+  }));
+
   try {
-    const insertResult = await collection.insertMany(data, { ordered: false });
-    console.log(`${insertResult.insertedCount} documents inserted successfully.`);
+    const result = await collection.bulkWrite(bulkOps, { ordered: false });
+    console.log(`${result.upsertedCount} new movies inserted, ${result.modifiedCount} movies updated.`);
   } catch (error) {
-    if (error.code === 11000) {
-      console.log("Duplicate records found, skipping insertion.");
-    } else {
-      console.error("Error saving data to database:", error.message);
-    }
+    console.error("Error saving data to database:", error.message);
   }
 }
 
-// Fetch and save data for the last 10 days
-async function fetchAndSaveLast10DaysData(loginCollection) {
-  const endDate = moment().format("YYYY-MM-DD");
-  const startDate = moment().subtract(10, "days").format("YYYY-MM-DD");
-
-  console.log(`Fetching TMDB data from ${startDate} to ${endDate}...`);
-
-  const tmdbData = await fetchTMDBData(startDate, endDate);
-  if (tmdbData && tmdbData.length > 0) {
-    await saveToDatabase(loginCollection, tmdbData);
-  } else {
-    console.log("No data available for the specified date range.");
-  }
+// Fetch and save data for a specific date
+async function fetchAndSaveForDate(collection, date) {
+  console.log(`Fetching and saving data for date ${date}...`);
+  const movies = await fetchTMDBDataForDate(date);
+  await saveToDatabase(collection, movies);
 }
 
-// Schedule a daily job to fetch current day's data at 3 AM
-function scheduleDailyJob(loginCollection) {
+// Schedule a daily job to fetch and save current day's data
+function scheduleDailyJob(collection) {
   cron.schedule("0 3 * * *", async () => {
     console.log("Running daily TMDB data fetch job at 3 AM...");
     const todayDate = moment().format("YYYY-MM-DD");
-    const tmdbData = await fetchTMDBData(todayDate, todayDate);
-    if (tmdbData && tmdbData.length > 0) {
-      await saveToDatabase(loginCollection, tmdbData);
-    } else {
-      console.log("No data available for today's date.");
-    }
+    await fetchAndSaveForDate(collection, todayDate);
   });
 }
 
@@ -105,17 +109,77 @@ function scheduleDailyJob(loginCollection) {
 async function startServer() {
   try {
     const db = await connectToDatabase();
-    const loginCollection = db.collection('logins'); // Ensure the collection exists in your database
+    const movieCollection = db.collection('movies'); // Ensure the collection exists in your database
 
-    // Fetch and save data for the last 10 days on startup
-    await fetchAndSaveLast10DaysData(loginCollection);
+    // Fetch and save data for today's date on startup
+    const todayDate = moment().format("YYYY-MM-DD");
+    await fetchAndSaveForDate(movieCollection, todayDate);
 
     // Schedule the daily job
-    scheduleDailyJob(loginCollection);
+    scheduleDailyJob(movieCollection);
 
-    // Test route
-    app.get('/', async (req, res) => {
-      res.send('TMDB data fetching and saving service is running.');
+    // API endpoint to fetch movies from the database
+    // app.get('/movies', async (req, res) => {
+    //   try {
+    //     const movies = await movieCollection
+    //       .find()
+    //       .sort({ primary_release_date: -1 })
+    //       .toArray();
+    //     res.json(movies);
+    //   } catch (error) {
+    //     console.error("Error fetching movies:", error.message);
+    //     res.status(500).send("Error fetching movies");
+    //   }
+    // });
+
+    app.get('/movies', async (req, res) => {
+      try {
+        const { page = 1, limit = 12 } = req.query;
+        const skip = (parseInt(page) - 1) * parseInt(limit);
+        
+        const movieCollection = client.db('Movie').collection('movies');
+    
+        // Get the current date
+        const today = moment().startOf('day').toISOString();
+        
+        // First, get movies released today
+        const todayMovies = await movieCollection
+          .find({
+            release_date: {
+              $gte: today,
+              $lt: moment().endOf('day').toISOString()
+            }
+          })
+          .toArray();
+    
+        // Then get other movies, excluding today's releases
+        const otherMovies = await movieCollection
+          .find({
+            release_date: { $lt: today }
+          })
+          .sort({ release_date: -1 })
+          .skip(Math.max(0, skip - todayMovies.length))
+          .limit(Math.max(0, parseInt(limit) - todayMovies.length))
+          .toArray();
+    
+        // Combine the results
+        const combinedMovies = [...todayMovies, ...otherMovies].slice(0, limit);
+    
+        // Get total count for pagination
+        const totalMovies = await movieCollection.countDocuments();
+    
+        res.json({
+          data: combinedMovies,
+          currentPage: parseInt(page),
+          totalPages: Math.ceil(totalMovies / parseInt(limit)),
+          totalMovies,
+          todayCount: todayMovies.length
+        });
+    
+      } catch (error) {
+        console.error("Error fetching movies:", error.message);
+        res.status(500).json({ error: "Error fetching movies" });
+      }
     });
 
     const port = process.env.PORT || 8080;
@@ -127,6 +191,30 @@ async function startServer() {
     process.exit(1);
   }
 }
+
+// Search endpoint
+app.get('/search', async (req, res) => {
+  const { query } = req.query;
+
+  if (!query || query.trim() === '') {
+    return res.status(400).json({ error: 'Query parameter is required.' });
+  }
+
+  try {
+    const movieCollection = client.db('Movie').collection('movies');
+    
+    // Search movies with a case-insensitive regex query
+    const searchResults = await movieCollection
+      .find({ title: { $regex: query, $options: 'i' } })
+      .limit(10) // Limit results for performance
+      .toArray();
+
+    res.json({ results: searchResults });
+  } catch (error) {
+    console.error("Error searching movies:", error.message);
+    res.status(500).send({ error: 'Error searching movies.' });
+  }
+});
 
 // Graceful shutdown for MongoDB connection
 process.on('SIGINT', async () => {

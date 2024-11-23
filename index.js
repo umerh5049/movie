@@ -12,8 +12,8 @@ const uri = "mongodb+srv://umerh5049:umerh5049@movie.wi2dn.mongodb.net/?retryWri
 
 // Initialize MongoClient with connection options
 const client = new MongoClient(uri, {
-  serverSelectionTimeoutMS: 10000, // Timeout after 10 seconds if MongoDB is unreachable
-  socketTimeoutMS: 45000, // Close sockets after 45 seconds of inactivity
+  serverSelectionTimeoutMS: 10000,
+  socketTimeoutMS: 45000,
 });
 
 app.use(express.json());
@@ -69,15 +69,22 @@ async function fetchTMDBDataForDate(releaseDate) {
   }
 }
 
-// Save fetched data to MongoDB, avoiding duplicates
+// Save fetched data to MongoDB, avoiding duplicates and excluding movies without poster_path
 async function saveToDatabase(collection, data) {
   if (!data || data.length === 0) return;
 
-  const bulkOps = data.map((movie) => ({
+  const validMovies = data.filter((movie) => movie.poster_path);
+
+  if (validMovies.length === 0) {
+    console.log("No valid movies with poster images to save.");
+    return;
+  }
+
+  const bulkOps = validMovies.map((movie) => ({
     updateOne: {
       filter: { id: movie.id },
       update: { $set: movie },
-      upsert: true, // Insert if not exists
+      upsert: true,
     },
   }));
 
@@ -86,6 +93,18 @@ async function saveToDatabase(collection, data) {
     console.log(`${result.upsertedCount} new movies inserted, ${result.modifiedCount} movies updated.`);
   } catch (error) {
     console.error("Error saving data to database:", error.message);
+  }
+}
+
+// Delete movies without poster_path from the database
+async function deleteMoviesWithoutPoster(collection) {
+  try {
+    const result = await collection.deleteMany({
+      $or: [{ poster_path: { $exists: false } }, { poster_path: null }, { poster_path: "" }],
+    });
+    console.log(`Deleted ${result.deletedCount} movies without poster images.`);
+  } catch (error) {
+    console.error("Error deleting movies without poster images:", error.message);
   }
 }
 
@@ -102,6 +121,7 @@ function scheduleDailyJob(collection) {
     console.log("Running daily TMDB data fetch job at 3 AM...");
     const todayDate = moment().format("YYYY-MM-DD");
     await fetchAndSaveForDate(collection, todayDate);
+    await deleteMoviesWithoutPoster(collection); // Cleanup after daily fetch
   });
 }
 
@@ -109,7 +129,10 @@ function scheduleDailyJob(collection) {
 async function startServer() {
   try {
     const db = await connectToDatabase();
-    const movieCollection = db.collection('movies'); // Ensure the collection exists in your database
+    const movieCollection = db.collection('movies');
+
+    // Cleanup movies without poster images on startup
+    await deleteMoviesWithoutPoster(movieCollection);
 
     // Fetch and save data for today's date on startup
     const todayDate = moment().format("YYYY-MM-DD");
@@ -118,67 +141,52 @@ async function startServer() {
     // Schedule the daily job
     scheduleDailyJob(movieCollection);
 
-    // API endpoint to fetch movies from the database
-    // app.get('/movies', async (req, res) => {
-    //   try {
-    //     const movies = await movieCollection
-    //       .find()
-    //       .sort({ primary_release_date: -1 })
-    //       .toArray();
-    //     res.json(movies);
-    //   } catch (error) {
-    //     console.error("Error fetching movies:", error.message);
-    //     res.status(500).send("Error fetching movies");
-    //   }
-    // });
-
+    // API endpoint to fetch movies
     app.get('/movies', async (req, res) => {
       try {
         const { page = 1, limit = 12 } = req.query;
         const skip = (parseInt(page) - 1) * parseInt(limit);
-        
-        const movieCollection = client.db('Movie').collection('movies');
-    
-        // Get the current date
+
         const today = moment().startOf('day').toISOString();
-        
-        // First, get movies released today
-        const todayMovies = await movieCollection
-          .find({
-            release_date: {
-              $gte: today,
-              $lt: moment().endOf('day').toISOString()
-            }
-          })
-          .toArray();
-    
-        // Then get other movies, excluding today's releases
-        const otherMovies = await movieCollection
-          .find({
-            release_date: { $lt: today }
-          })
+        const todayMovies = await movieCollection.find({
+          release_date: {
+            $gte: today,
+            $lt: moment().endOf('day').toISOString(),
+          },
+        }).toArray();
+
+        const otherMovies = await movieCollection.find({
+          release_date: { $lt: today },
+        })
           .sort({ release_date: -1 })
           .skip(Math.max(0, skip - todayMovies.length))
           .limit(Math.max(0, parseInt(limit) - todayMovies.length))
           .toArray();
-    
-        // Combine the results
+
         const combinedMovies = [...todayMovies, ...otherMovies].slice(0, limit);
-    
-        // Get total count for pagination
         const totalMovies = await movieCollection.countDocuments();
-    
+
         res.json({
           data: combinedMovies,
           currentPage: parseInt(page),
           totalPages: Math.ceil(totalMovies / parseInt(limit)),
           totalMovies,
-          todayCount: todayMovies.length
+          todayCount: todayMovies.length,
         });
-    
       } catch (error) {
         console.error("Error fetching movies:", error.message);
         res.status(500).json({ error: "Error fetching movies" });
+      }
+    });
+
+    // API endpoint for manual cleanup
+    app.delete('/movies/cleanup', async (req, res) => {
+      try {
+        await deleteMoviesWithoutPoster(movieCollection);
+        res.json({ message: "Cleanup completed. Movies without poster images removed." });
+      } catch (error) {
+        console.error("Error cleaning up movies:", error.message);
+        res.status(500).json({ error: "Error cleaning up movies" });
       }
     });
 
@@ -191,43 +199,6 @@ async function startServer() {
     process.exit(1);
   }
 }
-
-// Search endpoint
-app.get('/search', async (req, res) => {
-  const { query } = req.query;
-
-  if (!query || query.trim() === '') {
-    return res.status(400).json({ error: 'Query parameter is required.' });
-  }
-
-  try {
-    const movieCollection = client.db('Movie').collection('movies');
-    
-    // Search movies with a case-insensitive regex query
-    const searchResults = await movieCollection
-      .find({ title: { $regex: query, $options: 'i' } })
-      .limit(10) // Limit results for performance
-      .toArray();
-
-    res.json({ results: searchResults });
-  } catch (error) {
-    console.error("Error searching movies:", error.message);
-    res.status(500).send({ error: 'Error searching movies.' });
-  }
-});
-
-// Graceful shutdown for MongoDB connection
-process.on('SIGINT', async () => {
-  console.log('Shutting down server...');
-  try {
-    await client.close();
-    console.log('MongoDB connection closed');
-    process.exit(0);
-  } catch (error) {
-    console.error('Error closing MongoDB connection:', error.message);
-    process.exit(1);
-  }
-});
 
 // Start the server
 startServer();
