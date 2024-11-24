@@ -1,4 +1,5 @@
 const express = require('express');
+require('dotenv').config(); // Load environment variables
 const { MongoClient } = require('mongodb');
 const cors = require('cors');
 const axios = require('axios');
@@ -8,7 +9,9 @@ const moment = require('moment');
 const app = express();
 
 // MongoDB connection URI
-const uri = "mongodb+srv://umerh5049:umerh5049@movie.wi2dn.mongodb.net/?retryWrites=true&w=majority&appName=movie";
+// const uri = "mongodb+srv://umerh5049:umerh5049@movie.wi2dn.mongodb.net/?retryWrites=true&w=majority&appName=movie";
+const uri = process.env.MONGODB_URI; // MongoDB URI from .env
+
 
 // Initialize MongoClient with connection options
 const client = new MongoClient(uri, {
@@ -32,7 +35,8 @@ app.use(cors({
 }));
 
 // TMDB API settings
-const TMDB_API_KEY = "eyJhbGciOiJIUzI1NiJ9.eyJhdWQiOiJkY2E4YWM3NTFkMjBiNzM2OTRkOTc4Y2FkODYzODIyOCIsIm5iZiI6MTczMTcwMTU1Ny4wNzM3MzkzLCJzdWIiOiI2NzM3NmM3N2ZmZTM4NzhlOWU5ZmM1ZDIiLCJzY29wZXMiOlsiYXBpX3JlYWQiXSwidmVyc2lvbiI6MX0.hbRU_MpaaDaHCD1RMy4YuzBgxYUJDmT0nSIjTbsWQ9s";
+// const TMDB_API_KEY = "eyJhbGciOiJIUzI1NiJ9.eyJhdWQiOiJkY2E4YWM3NTFkMjBiNzM2OTRkOTc4Y2FkODYzODIyOCIsIm5iZiI6MTczMTcwMTU1Ny4wNzM3MzkzLCJzdWIiOiI2NzM3NmM3N2ZmZTM4NzhlOWU5ZmM1ZDIiLCJzY29wZXMiOlsiYXBpX3JlYWQiXSwidmVyc2lvbiI6MX0.hbRU_MpaaDaHCD1RMy4YuzBgxYUJDmT0nSIjTbsWQ9s";
+const TMDB_API_KEY = process.env.TMDB_API_KEY; // TMDB API Key from .env
 const TMDB_BASE_URL = "https://api.themoviedb.org/3/discover/movie";
 
 // Connect to MongoDB and return the database instance
@@ -823,7 +827,7 @@ app.get('/movies/:id', async (req, res) => {
 
 
 
-    const port = process.env.PORT || 8080;
+const PORT = process.env.PORT || 8080; // Application Port
     app.listen(port, () => {
       console.log(`Server running on port ${port}`);
     });
