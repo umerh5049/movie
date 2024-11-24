@@ -182,7 +182,7 @@ async function startServer() {
     // API endpoint to fetch movies
     app.get('/movies', async (req, res) => {
       try {
-        const { page = 1, limit = 30 } = req.query;
+        const { page = 1, limit = 12 } = req.query;
         const skip = (parseInt(page) - 1) * parseInt(limit);
 
         const today = moment().startOf('day').toISOString();
